@@ -12,9 +12,9 @@
     };
 
     var findMessageInput = function () {
-        return document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-            document.querySelector('[class*="DraftEditor-editorContainer"] [contenteditable="true"]') ||
-            document.querySelector('[class*="DivInputArea"] [contenteditable="true"]') ||
+        return document.querySelector('div[contenteditable="true"][data-placeholder*="Message"]') ||
+            document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+            document.querySelector('div.public-DraftEditor-content[contenteditable="true"]') ||
             document.querySelector('div[contenteditable="true"]');
     };
 
@@ -31,15 +31,14 @@
             selection.addRange(range);
 
             document.execCommand('insertText', false, message);
-            setTimeout(callback, 300);
-        }, 200);
+            setTimeout(callback, 400);
+        }, 300);
     };
 
     var sendMessage = function (messageInput) {
         var sendBtn = document.querySelector('button[type="submit"]') ||
             document.querySelector('[data-e2e*="send"]') ||
-            document.querySelector('[data-e2e*="Send"]') ||
-            document.querySelector('span[data-e2e*="send"]');
+            document.querySelector('svg[fill*="currentColor"]')?.closest('button');
 
         if (sendBtn) {
             sendBtn.dispatchEvent(new Event('click', { bubbles: true }));
@@ -63,7 +62,6 @@
             return;
         }
 
-        // بحث أشمل عن قائمة المحادثات في القائمة الجانبية (شامل المجموعات والفرادى)
         var chatItems = document.querySelectorAll('div[class*="DivChatRoomItem"], div[class*="ItemContainer"], [data-e2e*="conversation-item"], [data-e2e*="chat-item"], ul li');
 
         if (processedCount >= chatItems.length) {
@@ -82,7 +80,6 @@
             return;
         }
 
-        // محاولة النقر على عنصر المحادثة أو العنصر الأب داخله
         var clickableTarget = currentChat.querySelector('a, div[role="button"]') || currentChat;
         clickableTarget.click();
         log('[CHAT] Opened chat index: ' + (processedCount + 1));
@@ -94,20 +91,20 @@
                     sendMessage(messageInput);
                     processedCount++;
                     log('[SUCCESS] Message sent to chat ' + processedCount);
-                    setTimeout(processNextChat, 1500);
+                    setTimeout(processNextChat, 2000);
                 });
             } else {
                 log('[ERROR] Message input not found, skipping...');
                 processedCount++;
-                setTimeout(processNextChat, 1200);
+                setTimeout(processNextChat, 1500);
             }
-        }, 1500);
+        }, 2000);
     };
 
     var init = function () {
         try {
             log('[INIT] Starting top-down chat automation for ' + maxChats + ' chats.');
-            setTimeout(processNextChat, 2500);
+            setTimeout(processNextChat, 3000);
         } catch (e) {
             log('[ERROR] Init exception: ' + e.message);
         }
