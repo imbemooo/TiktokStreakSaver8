@@ -19,6 +19,7 @@ public partial class DashboardPage : ContentPage
     private bool _suppressMessagePersist;
     private bool _messageSettingsLoaded;
     private string _messageDraft = string.Empty;
+    private int _maxChats = 10;
     private IDispatcherTimer? _statusTimer;
     private readonly NormalProgressDrawable _normalProgressDrawable;
     private string _lastLiveLogText = string.Empty;
@@ -229,6 +230,7 @@ public partial class DashboardPage : ContentPage
         RandomizeModeHint.IsVisible = isRandomized;
         MessageEditor.IsEnabled = !isRunning && !isRandomized;
         MessageEditor.Opacity = isRunning ? 0.6 : 1.0;
+        MaxChatsEntry.IsEnabled = !isRunning;
     }
 
     private static string NormalizeVersion(string raw)
@@ -316,7 +318,19 @@ public partial class DashboardPage : ContentPage
             _messageSettingsLoaded = true;
         }
 
+        _maxChats = _settingsService.GetMaxChats();
+        MaxChatsEntry.Text = _maxChats.ToString();
+
         ApplyMessageEditorMode(GetIsRunInProgress());
+    }
+
+    private void OnMaxChatsChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (int.TryParse(e.NewTextValue, out var val) && val > 0)
+        {
+            _maxChats = val;
+            _settingsService.SetMaxChats(val);
+        }
     }
 
     private void UpdateStatus()
@@ -424,12 +438,6 @@ public partial class DashboardPage : ContentPage
             .ToList();
     }
 
-    /// <summary>
-    /// Human-readable next-run label.
-    /// Imminent runs use a relative phrasing ("Now", "In 12 minutes"); future runs are anchored to
-    /// the calendar day ("Today at 09:00", "Tomorrow at 09:00", "Wed, May 14 at 09:00") so the
-    /// fixed-daily-schedule mode reads naturally even when the next run is up to a day away.
-    /// </summary>
     private static string FormatNextRun(DateTime nextRun)
     {
         var now = DateTime.Now;
@@ -488,16 +496,9 @@ public partial class DashboardPage : ContentPage
             return;
         }
 
-        var friends = _settingsService.GetEnabledFriends();
-        if (friends.Count == 0)
-        {
-            await DisplayAlert("No Friends", "Please add at least one friend before running.", "OK");
-            return;
-        }
-
         var confirm = await DisplayAlert(
             "Run Now",
-            $"This will send your streak message to {friends.Count} friend{(friends.Count != 1 ? "s" : "")}. Continue?",
+            $"This will send your streak message to top {_maxChats} chats. Continue?",
             "Run", "Cancel");
         if (!confirm) return;
 
