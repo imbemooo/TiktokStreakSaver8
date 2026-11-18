@@ -14,6 +14,7 @@ public class SettingsService
 
     private const string FriendsListKey = "friends_list";
     private const string MessageTextKey = "message_text";
+    private const string MaxChatsKey = "max_chats"; // مفتاح تخزين عدد المحادثات الجديد
     private const string LastRunKey = "last_run";
     private const string IsScheduledKey = "is_scheduled";
     private const string RunHistoryKey = "run_history";
@@ -236,7 +237,7 @@ public class SettingsService
 
     #endregion
 
-    #region Message Configuration
+    #region Message & Max Chats Configuration
 
     public string GetMessageText()
     {
@@ -253,6 +254,18 @@ public class SettingsService
         var text = message ?? string.Empty;
         _storage.SetString(MessageTextKey, text);
         TryWriteMessageTextFile(text);
+    }
+
+    // دوال إدارة عدد المحادثات الجديد
+    public int GetMaxChats()
+    {
+        var stored = (int)_storage.GetLong(MaxChatsKey, 10);
+        return stored > 0 ? stored : 10;
+    }
+
+    public void SetMaxChats(int maxChats)
+    {
+        _storage.SetLong(MaxChatsKey, maxChats > 0 ? maxChats : 10);
     }
 
     private static string SharedStorageDirectory
@@ -655,7 +668,9 @@ public class SettingsService
 
         var json = _storage.GetString(RunHistoryKey, string.Empty);
         if (string.IsNullOrWhiteSpace(json))
+        {
             return new List<StreakRunResult>();
+        }
 
         try
         {
