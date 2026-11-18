@@ -1,7 +1,10 @@
+// TikTok Message Automation Script (Search Bar Version)
+// This script is injected into the TikTok WebView to automate messaging via search bar
+
 (function () {
+    var userName = '[UserName]';
     var message = '[Message]';
-    var maxChats = parseInt('[MaxChats]' || '10');
-    var processedCount = 0;
+    var isGroup = '[IsGroup]' === 'true';
 
     var log = function (msg) {
         if (typeof StreakApp == 'undefined') {
@@ -11,104 +14,174 @@
         StreakApp.log(msg);
     };
 
+    var reportSuccess = function () {
+        log('[RESULT] SUCCESS — Message sent to ' + userName);
+        if (typeof StreakApp !== 'undefined') {
+            StreakApp.onMessageSent(userName, true, '');
+        }
+    };
+
+    var reportError = function (errorMessage) {
+        log('[RESULT] FAIL — ' + errorMessage);
+        if (typeof StreakApp !== 'undefined') {
+            StreakApp.onMessageSent(userName, false, errorMessage);
+        }
+    };
+
     var findMessageInput = function () {
-        return document.querySelector('div[contenteditable="true"][data-placeholder*="Message"]') ||
+        var editor = document.querySelector('[class*="DraftEditor-editorContainer"] [contenteditable="true"]') ||
+            document.querySelector('[class*="DraftEditor-root"] [contenteditable="true"]') ||
             document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-            document.querySelector('div.public-DraftEditor-content[contenteditable="true"]') ||
             document.querySelector('div[contenteditable="true"]');
+
+        return editor;
+    };
+
+    var findDraftEditor = function (messageInput) {
+        var key = Object.keys(messageInput).find(function (k) {
+            return k.startsWith('__reactFiber$') || k.startsWith('__reactInternalInstance$');
+        });
+
+        if (!key) return null;
+        var fiber = messageInput[key];
+        var current = fiber;
+
+        while (current) {
+            if (current.stateNode && current.stateNode.editor) {
+                return current.stateNode;
+            }
+            current = current.return;
+        }
+        return null;
     };
 
     var typeMessage = function (messageInput, callback) {
-        messageInput.click();
-        messageInput.focus();
+        log('[TYPE] Starting typeMessage...');
+        var draftEditor = findDraftEditor(messageInput);
 
-        setTimeout(function () {
-            var selection = window.getSelection();
-            var range = document.createRange();
-            range.selectNodeContents(messageInput);
-            range.collapse(false);
-            selection.removeAllRanges();
-            selection.addRange(range);
+        if (draftEditor) {
+            draftEditor.focus();
+            setTimeout(function () {
+                var dataTransfer = new DataTransfer();
+                dataTransfer.setData('text/plain', message);
 
-            document.execCommand('insertText', false, message);
-            setTimeout(callback, 400);
-        }, 300);
+                var pasteEvent = new ClipboardEvent('paste', {
+                    bubbles: true,
+                    cancelable: true,
+                    clipboardData: dataTransfer
+                });
+
+                try {
+                    draftEditor._onPaste(pasteEvent);
+                } catch (e) {
+                    log('[TYPE] _onPaste error: ' + e.message);
+                }
+
+                setTimeout(callback, 300);
+            }, 200);
+        } else {
+            messageInput.click();
+            messageInput.focus();
+            setTimeout(function () {
+                var selection = window.getSelection();
+                var range = document.createRange();
+                range.selectNodeContents(messageInput);
+                range.collapse(false);
+                selection.removeAllRanges();
+                selection.addRange(range);
+
+                document.execCommand('insertText', false, message);
+                setTimeout(callback, 300);
+            }, 200);
+        }
     };
 
     var sendMessage = function (messageInput) {
-        var sendBtn = document.querySelector('button[type="submit"]') ||
-            document.querySelector('[data-e2e*="send"]') ||
-            document.querySelector('svg[fill*="currentColor"]')?.closest('button');
+        var sendBtn = document.querySelector('[data-e2e*="send"]') ||
+            document.querySelector('[data-e2e*="Send"]') ||
+            document.querySelector('button[type="submit"]');
 
         if (sendBtn) {
             sendBtn.dispatchEvent(new Event('click', { bubbles: true }));
             return;
         }
 
-        messageInput.dispatchEvent(new KeyboardEvent('keydown', {
-            key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true
-        }));
-        messageInput.dispatchEvent(new KeyboardEvent('keyup', {
-            key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
-        }));
+        messageInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+        messageInput.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
     };
 
-    var processNextChat = async function () {
-        if (processedCount >= maxChats) {
-            log('[RESULT] Completed all ' + maxChats + ' chats successfully.');
-            if (typeof StreakApp !== 'undefined') {
-                StreakApp.onAutomationComplete(true, 'Completed target count of ' + maxChats);
-            }
-            return;
-        }
-
-        var chatItems = document.querySelectorAll('div[class*="DivChatRoomItem"], div[class*="ItemContainer"], [data-e2e*="conversation-item"], [data-e2e*="chat-item"], ul li');
-
-        if (processedCount >= chatItems.length) {
-            log('[SCROLL] Scrolling down to load more chats...');
-            window.scrollBy(0, 500);
-            setTimeout(processNextChat, 2000);
-            return;
-        }
-
-        var currentChat = chatItems[processedCount];
-        if (!currentChat) {
-            log('[RESULT] No more chats available to process.');
-            if (typeof StreakApp !== 'undefined') {
-                StreakApp.onAutomationComplete(true, 'Processed ' + processedCount + ' chats');
-            }
-            return;
-        }
-
-        var clickableTarget = currentChat.querySelector('a, div[role="button"]') || currentChat;
-        clickableTarget.click();
-        log('[CHAT] Opened chat index: ' + (processedCount + 1));
-
+    var processChatAndSend = function () {
         setTimeout(function () {
             var messageInput = findMessageInput();
             if (messageInput) {
+                log('[CHAT] Found message input, typing...');
                 typeMessage(messageInput, function () {
                     sendMessage(messageInput);
-                    processedCount++;
-                    log('[SUCCESS] Message sent to chat ' + processedCount);
-                    setTimeout(processNextChat, 2000);
+                    setTimeout(reportSuccess, 1000);
                 });
             } else {
-                log('[ERROR] Message input not found, skipping...');
-                processedCount++;
-                setTimeout(processNextChat, 1500);
+                log('[CHAT] Message input not found');
+                reportError('Message input not found');
+            }
+        }, 1500);
+    };
+
+    var searchAndOpenUser = function () {
+        if (userName.startsWith('@')) {
+            userName = userName.substring(1);
+        }
+
+        log('[SEARCH] Looking for search input bar...');
+        
+        var searchInput = document.querySelector('input[type="text"][placeholder*="Account"], input[type="text"][placeholder*="بحث"], input[type="search"], [contenteditable="true"][data-e2e*="search"], input[placeholder*="Account and messages"]');
+        
+        if (!searchInput) {
+            var inputs = document.querySelectorAll('input');
+            for (var i = 0; i < inputs.length; i++) {
+                var ph = (inputs[i].getAttribute('placeholder') || '').toLowerCase();
+                if (ph.includes('account') || ph.includes('message') || ph.includes('search') || ph.includes('بحث')) {
+                    searchInput = inputs[i];
+                    break;
+                }
+            }
+        }
+
+        if (!searchInput) {
+            log('[SEARCH] ERROR: Search input bar not found!');
+            reportError('Search input bar not found');
+            return;
+        }
+
+        log('[SEARCH] Search input found. Focusing and typing: ' + userName);
+        searchInput.click();
+        searchInput.focus();
+
+        searchInput.value = userName;
+        searchInput.dispatchEvent(new Event('input', { bubbles: true }));
+        searchInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+        setTimeout(function () {
+            log('[SEARCH] Searching for results in dropdown...');
+            
+            var results = document.querySelectorAll("[data-e2e*='conversation-item'], [data-e2e*='chat-item'], [class*='ConversationItem'], [class*='user-item'], div[role='listitem']");
+            
+            if (results.length === 0) {
+                results = document.querySelectorAll('a[href*="/@"], [class*="Item"], [class*="result"]');
+            }
+
+            if (results && results.length > 0) {
+                log('[SEARCH] Found ' + results.length + ' result(s), clicking the first match...');
+                results[0].click();
+                processChatAndSend();
+            } else {
+                log('[SEARCH] WARNING: No search results found for: ' + userName);
+                reportError('User or group not found in search results');
             }
         }, 2000);
     };
 
-    var init = function () {
-        try {
-            log('[INIT] Starting top-down chat automation for ' + maxChats + ' chats.');
-            setTimeout(processNextChat, 3000);
-        } catch (e) {
-            log('[ERROR] Init exception: ' + e.message);
-        }
-    };
+    setTimeout(function () {
+        searchAndOpenUser();
+    }, 2000);
 
-    init();
 })();
