@@ -104,6 +104,26 @@
                     <Border Style="{StaticResource SectionCard}">
                         <VerticalStackLayout Spacing="12">
                             <Label Text="Run Configuration" Style="{StaticResource SectionLabel}"/>
+                            
+                            <!-- Max Chats Configuration -->
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Number of Chats to Process"
+                                       Style="{StaticResource DataLabel}"
+                                       LineBreakMode="WordWrap"/>
+                                <Border StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 12"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}">
+                                    <Entry x:Name="MaxChatsEntry"
+                                           Placeholder="10"
+                                           Keyboard="Numeric"
+                                           Text="10"
+                                           HeightRequest="44"
+                                           Margin="12,0"
+                                           BackgroundColor="Transparent"
+                                           TextChanged="OnMaxChatsChanged"/>
+                                </Border>
+                            </VerticalStackLayout>
+
                             <Label x:Name="RandomizeModeHint"
                                    Text="Randomized messages enabled — 50 built-in variants"
                                    Style="{StaticResource DataLabel}"
@@ -111,7 +131,7 @@
                                    IsVisible="False"/>
                             <VerticalStackLayout x:Name="CustomMessagePanel" Spacing="4">
                                 <Label x:Name="MessageEditorHint"
-                                       Text="Message sent to each friend during a streak run"
+                                       Text="Message sent to each chat during a run"
                                        Style="{StaticResource DataLabel}"
                                        LineBreakMode="WordWrap"/>
                                 <Border x:Name="MessageEditorBorder" StrokeThickness="0"
